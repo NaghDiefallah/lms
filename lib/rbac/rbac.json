@@ -1,0 +1,61 @@
+{
+  "version": "1.0.0",
+  "description": "Lawfirm Management System (LMS) RBAC - permission map per role",
+  "modules": ["cases", "clients", "ledger", "marketing", "personnel"],
+  "actions": ["create", "read", "update", "delete"],
+  "specialAction": {
+    "all": "Grants create, read, update, and delete for the module"
+  },
+  "roles": {
+    "CEO": {
+      "description": "Full administrative access across all modules",
+      "permissions": [
+        "cases.all",
+        "clients.all",
+        "ledger.all",
+        "marketing.all",
+        "personnel.all"
+      ]
+    },
+    "Partner": {
+      "description": "Full administrative access across all modules",
+      "permissions": [
+        "cases.all",
+        "clients.all",
+        "ledger.all",
+        "marketing.all",
+        "personnel.all"
+      ]
+    },
+    "Senior Attorney": {
+      "description": "Create/read/update on Cases and Clients; read-only on Ledger, Marketing, Personnel",
+      "permissions": [
+        "cases.create",
+        "cases.read",
+        "cases.update",
+        "clients.create",
+        "clients.read",
+        "clients.update",
+        "ledger.read",
+        "marketing.read",
+        "personnel.read"
+      ]
+    },
+    "Attorney": {
+      "description": "Create and read Cases and Clients only; no access to other modules",
+      "permissions": [
+        "cases.create",
+        "cases.read",
+        "clients.create",
+        "clients.read"
+      ]
+    },
+    "Law Student": {
+      "description": "Read-only access to Cases and Clients; no access to other modules",
+      "permissions": [
+        "cases.read",
+        "clients.read"
+      ]
+    }
+  }
+}

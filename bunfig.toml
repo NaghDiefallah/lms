@@ -1,0 +1,3 @@
+[install]
+# Use text lockfile (bun.lock) — default since Bun 1.1.12
+auto = "force"

@@ -1,0 +1,24 @@
+# Git
+.git
+.github
+
+# Next.js build output (rebuilt inside Docker)
+.next
+
+# Dependencies (reinstalled inside Docker)
+node_modules
+
+# Secrets — never bake into image
+.env
+.env*.local
+
+# Dev / local tools
+.claude
+.vscode
+*.md
+TODO.md
+scripts
+
+# OS
+.DS_Store
+Thumbs.db
