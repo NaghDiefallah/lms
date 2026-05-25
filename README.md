@@ -109,8 +109,9 @@ Notes:
 
 - Build stage runs next build under Node.js 20.
 - Runtime stage uses Bun and serves standalone Next.js output.
-- Compose can run both LMS and PocketBase together for local/Coolify setups.
-- Runtime PocketBase and secret vars are provided from .env.
+- Compose runs LMS and PocketBase together by default.
+- PocketBase data is persisted in named Docker volume `pocketbase_data`.
+- Runtime PocketBase and secret vars are provided from `.env`.
 
 ## VPS Deployment (Direct From Repo)
 
@@ -118,6 +119,19 @@ If you deploy by cloning/pulling this repo directly on your VPS:
 
 1. Clone the repository on the VPS.
 1. Create your `.env` from `.env.example` and fill required values.
+1. Set `POCKETBASE_URL` to a value reachable from inside the LMS container.
+
+Recommended when PocketBase is on the same VPS host:
+
+```bash
+POCKETBASE_URL=http://host.docker.internal:8090
+```
+
+Do not use `localhost`, `127.0.0.1`, or `0.0.0.0` for `POCKETBASE_URL` in Docker deployments.
+Default compose wiring already uses `http://pb_lms:8090`, so you can usually omit `POCKETBASE_URL` unless you use an external PocketBase instance.
+
+When running `bun run setup:pocketbase` directly on the VPS host shell, use a host-reachable URL (for example `http://127.0.0.1:8090`) instead of Docker-only hostnames.
+
 1. Run:
 
 ```bash

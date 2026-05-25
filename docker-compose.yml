@@ -1,4 +1,18 @@
 services:
+  pb_lms:
+    image: spectado/pocketbase:latest
+    container_name: pb_lms
+    restart: unless-stopped
+    ports:
+      - "8090:8090"
+    volumes:
+      - pocketbase_data:/pb/pb_data
+    command:
+      - /pb/pocketbase
+      - serve
+      - --http=0.0.0.0:8090
+      - --dir=/pb/pb_data
+
   lms:
     build:
       context: .
@@ -9,7 +23,12 @@ services:
     restart: unless-stopped
     ports:
       - "3000:3000"
+    depends_on:
+      - pb_lms
     env_file:
       - .env
     environment:
-      POCKETBASE_URL: ${POCKETBASE_URL}
+      POCKETBASE_URL: ${POCKETBASE_URL:-http://pb_lms:8090}
+
+volumes:
+  pocketbase_data:

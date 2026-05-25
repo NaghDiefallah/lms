@@ -44,6 +44,7 @@ Thumbs.db
 
 # docker
 docker-data/
+pb_data/
 
 # private tooling/config folders
 .claude/
