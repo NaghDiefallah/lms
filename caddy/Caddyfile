@@ -1,0 +1,22 @@
+{
+	email admin@limarise.com
+}
+
+lms.limarise.com {
+	reverse_proxy lms:3000
+}
+
+api.limarise.com {
+	handle_path /lms/* {
+		reverse_proxy pb_lms:8090 {
+			header_up X-Forwarded-Proto {scheme}
+			header_up X-Forwarded-Host {host}
+			header_up X-Forwarded-Prefix /lms
+		}
+	}
+
+	handle {
+		header Content-Type text/plain
+		respond "API Gateway Operational" 200
+	}
+}

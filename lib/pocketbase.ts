@@ -41,33 +41,78 @@ async function authPocketBaseAdmin(pb: PocketBase) {
   try {
     await pb.admins.authWithPassword(superuserEmail!, superuserPassword!);
     return;
-  } catch {
-    const endpoint = new URL("/api/admins/auth-with-password", pocketBaseUrl).toString();
-    const timeoutSignal = AbortSignal.timeout(POCKETBASE_ADMIN_REQUEST_TIMEOUT_MS);
-    const response = await fetch(endpoint, {
-      method: "POST",
-      signal: timeoutSignal,
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        identity: superuserEmail,
-        password: superuserPassword,
-      }),
-    });
+  } catch {}
 
-    if (!response.ok) {
+  try {
+    const response = await pb.collection("_superusers").authWithPassword(superuserEmail!, superuserPassword!);
+    if (response?.token) {
+      pb.authStore.save(response.token, response.record ?? null);
+      return;
+    }
+  } catch {}
+
+  const endpoints = [
+    "/api/collections/_superusers/auth-with-password",
+    "/api/admins/auth-with-password",
+  ];
+
+  let lastError = "";
+  for (const path of endpoints) {
+    const endpoint = new URL(path, pocketBaseUrl).toString();
+
+    try {
+      const timeoutSignal = AbortSignal.timeout(POCKETBASE_ADMIN_REQUEST_TIMEOUT_MS);
+      const response = await fetch(endpoint, {
+        method: "POST",
+        signal: timeoutSignal,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          identity: superuserEmail,
+          password: superuserPassword,
+        }),
+      });
+
+      if (response.ok) {
+        const payload = (await response.json()) as {
+          token?: string;
+          admin?: Record<string, unknown>;
+          record?: Record<string, unknown>;
+        };
+
+        if (!payload.token) {
+          throw new Error("PocketBase admin auth response did not include a token.");
+        }
+
+        pb.authStore.save(payload.token, payload.admin ?? payload.record ?? null);
+        return;
+      }
+
       const text = await response.text();
-      throw new Error(`PocketBase admin auth failed (${response.status}): ${text}`);
-    }
+      lastError = `PocketBase admin auth failed (${response.status}) via ${path}: ${text}`;
 
-    const payload = (await response.json()) as { token?: string; admin?: Record<string, unknown> };
-    if (!payload.token) {
-      throw new Error("PocketBase admin auth response did not include a token.");
-    }
+      if (response.status === 400 && /use https/i.test(text)) {
+        throw new Error(
+          "PocketBase requires HTTPS for superuser/admin auth at the configured URL. "
+          + "Set POCKETBASE_URL to your HTTPS PocketBase endpoint (reverse-proxied with TLS), "
+          + "or disable the HTTPS-only requirement in PocketBase settings for internal Docker traffic.",
+        );
+      }
+    } catch (error) {
+      if (error instanceof Error && /requires HTTPS|HTTPS-only/i.test(error.message)) {
+        throw error;
+      }
 
-    pb.authStore.save(payload.token, payload.admin ?? null);
+      if (error instanceof Error) {
+        lastError = `${path}: ${error.message}`;
+      } else {
+        lastError = `${path}: unknown error`;
+      }
+    }
   }
+
+  throw new Error(lastError || "PocketBase admin auth failed on all known endpoints.");
 }
 
 function requirePocketBaseConfig() {

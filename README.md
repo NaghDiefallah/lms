@@ -144,6 +144,31 @@ This command uses `docker-compose.vps.yml` to build locally and start containers
 - recreates containers in detached mode
 - removes orphaned containers
 
+## VPS Path B (HTTPS + /lms subpath)
+
+`docker-compose.vps.yml` includes a Caddy reverse proxy and configures PocketBase with:
+
+- `--url=${POCKETBASE_PUBLIC_URL}`
+- `X-Forwarded-Prefix: /lms` via Caddy
+
+Set these in `.env`:
+
+```bash
+POCKETBASE_URL=https://api.limarise.com/lms
+POCKETBASE_PUBLIC_URL=https://api.limarise.com/lms
+```
+
+Make sure DNS points to your VPS:
+
+- `lms.limarise.com`
+- `api.limarise.com`
+
+Then deploy:
+
+```bash
+bun run deploy:vps
+```
+
 ## High-Level Project Layout
 
 ```text
