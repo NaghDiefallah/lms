@@ -4,15 +4,9 @@ services:
     container_name: pb_lms
     restart: unless-stopped
     ports:
-      - "127.0.0.1:8090:8090"
+      - "127.0.0.1:8090:80"
     volumes:
       - pocketbase_data:/pb/pb_data
-    command:
-      - /pb/pocketbase
-      - serve
-      - --http=0.0.0.0:8090
-      - --dir=/pb/pb_data
-      - --url=${POCKETBASE_PUBLIC_URL:-https://api.limarise.com/lms}
 
   lms:
     build:
@@ -29,7 +23,7 @@ services:
     env_file:
       - .env
     environment:
-      POCKETBASE_URL: ${POCKETBASE_URL:-https://api.limarise.com/lms}
+      POCKETBASE_URL: ${POCKETBASE_URL:-http://pb_lms}
 
 volumes:
   pocketbase_data:

@@ -137,12 +137,13 @@ This command runs `docker compose -f docker-compose.vps.yml up -d --build --forc
 ### VPS Networking Notes
 
 - If PocketBase runs on the same VPS host, `POCKETBASE_URL` must point to a host-reachable address.
+- In `docker-compose.vps.yml`, the default container-to-container value is `POCKETBASE_URL=http://pb_lms`.
 - For Docker deployments, do not use `localhost`, `127.0.0.1`, or `0.0.0.0` unless the service is reachable from inside the LMS container.
 - When running `bun run setup:pocketbase` directly on the host, use a host-accessible URL such as `http://127.0.0.1:8090`.
 
 ### HTTPS + `/lms` Subpath
 
-The `docker-compose.vps.yml` file also supports a reverse-proxy deployment with Caddy and a PocketBase subpath.
+The `docker-compose.vps.yml` file supports reverse-proxy deployment with PocketBase behind a `/lms` subpath.
 
 Typical values look like this:
 
@@ -151,7 +152,7 @@ POCKETBASE_URL=https://api.example.com/lms
 POCKETBASE_PUBLIC_URL=https://api.example.com/lms
 ```
 
-In that setup, Caddy forwards the LMS app on one host name and PocketBase on a `/lms` subpath of another host name.
+In that setup, your reverse proxy forwards the LMS app on one host name and PocketBase on a `/lms` subpath of another host name.
 
 ## Project Structure
 
