@@ -1,34 +1,39 @@
 # Lawfirm Management System (LMS)
 
-Internal legal operations platform built on Next.js 16, tRPC, and PocketBase.
+Lawfirm Management System is a self-hosted internal operations platform for law firms. It combines case management, client records, billing, personnel, marketing, and file storage in one application, with PocketBase providing authentication and data persistence.
 
-## What This Repo Contains
+## Overview
 
-- Case management flows
-- Client management and client history
-- Ledger and invoice workflows
-- Personnel tracking
-- Marketing campaign tracking
-- Role-based authorization helpers
-- PocketBase-backed auth/session and data access
+The application is built as a modern Next.js App Router project and is designed to support day-to-day legal operations with a strong focus on structured workflows and role-based access control.
+
+Core areas of the product include:
+
+- Case management with assigned attorneys, status tracking, and searchable records
+- Client management with client history, related cases, and file attachments
+- Ledger and invoice workflows, including retainer tracking and summaries
+- Personnel and team management with invitation flows
+- Marketing campaign tracking and performance visibility
+- Authentication and session handling backed by PocketBase
+- Backblaze B2 integration for object storage and CDN delivery
 
 ## Tech Stack
 
-- Next.js 16 (App Router)
-- React 19 + TypeScript
-- tRPC 11 + TanStack Query
-- PocketBase
-- Tailwind CSS 4 + Radix UI components
-- Bun for package management and runtime in container
+- Next.js 16 with the App Router
+- React 19 and TypeScript
+- tRPC 11 and TanStack Query
+- PocketBase for authentication and database access
+- Tailwind CSS 4 and Radix UI primitives
+- Framer Motion for motion and page transitions
+- Bun for package management and the container runtime
 
-## Prerequisites
+## Requirements
 
-- Node.js 20+
-- Bun 1.2+
-- Access to a PocketBase instance
-- Backblaze B2 bucket (if file storage is enabled)
+- Node.js 20 or newer
+- Bun 1.2 or newer
+- A running PocketBase instance
+- Backblaze B2 credentials if file uploads are enabled
 
-## Quick Start
+## Getting Started
 
 1. Install dependencies:
 
@@ -36,15 +41,15 @@ Internal legal operations platform built on Next.js 16, tRPC, and PocketBase.
 bun install
 ```
 
-1. Create local environment file:
+1. Copy the example environment file:
 
 ```bash
 cp .env.example .env
 ```
 
-1. Fill required values in .env.
+1. Fill in the required values in `.env`.
 
-1. Start development server:
+1. Start the development server:
 
 ```bash
 bun run dev
@@ -54,141 +59,116 @@ bun run dev
 
 ## Environment Variables
 
-Start from .env.example.
+Start from `.env.example` and adjust the values to match your environment.
 
-Required PocketBase variables:
+### PocketBase
 
-- POCKETBASE_URL
-- POCKETBASE_SUPERUSER_EMAIL
-- POCKETBASE_SUPERUSER_PASSWORD
+- `POCKETBASE_URL` - PocketBase API URL used by the app and server-side helpers
+- `POCKETBASE_PUBLIC_URL` - Public PocketBase URL used in the VPS reverse-proxy setup
+- `POCKETBASE_SUPERUSER_EMAIL` - PocketBase admin email used for server-side access
+- `POCKETBASE_SUPERUSER_PASSWORD` - PocketBase admin password used for server-side access
 
-Required auth variable:
+### LMS Session Handling
 
-- LMS_AUTH_SECRET
+- `LMS_AUTH_SECRET` - Secret used to sign and verify LMS session cookies
 
-Backblaze B2 (server side):
+### Backblaze B2
 
-- B2_ENDPOINT
-- B2_REGION
-- B2_KEY_ID
-- B2_APP_KEY
-- B2_BUCKET
+These are used on the server side for uploads and signed object access:
 
-Public CDN value:
+- `B2_ENDPOINT`
+- `B2_REGION`
+- `B2_KEY_ID`
+- `B2_APP_KEY`
+- `B2_BUCKET`
 
-- NEXT_PUBLIC_B2_CDN_URL
+### Public CDN
 
-## PocketBase Initialization
+- `NEXT_PUBLIC_B2_CDN_URL` - Public CDN base URL for files stored in B2
 
-The app expects required collections to be provisioned in PocketBase.
+## PocketBase Setup
 
-Optional health/init check script:
+The application expects the required PocketBase collections to exist before it can be used in production. If you need to verify or initialize the PocketBase side of the installation, run:
 
 ```bash
 bun run setup:pocketbase
 ```
 
-## Package Scripts
+This script is safe to run against a host-reachable PocketBase instance during local or VPS setup.
 
-- bun run dev - Start local dev server
-- bun run build - Production build
-- bun run start - Start production server
-- bun run lint - Run Next.js linting
+## Available Scripts
+
+- `bun run dev` - Start the development server
+- `bun run build` - Create a production build
+- `bun run start` - Start the production server
+- `bun run lint` - Run ESLint with zero warnings allowed
+- `bun run setup:pocketbase` - Check or initialize PocketBase data requirements
+- `bun run deploy:vps` - Build and deploy the Docker stack defined in `docker-compose.vps.yml`
 
 ## Docker
 
-The repo includes a multi-stage Dockerfile and docker-compose.yml.
+The repository includes a multi-stage `Dockerfile` and a standard `docker-compose.yml` for local or self-hosted deployment.
 
-Build and run with compose:
+To build and start the default compose stack:
 
 ```bash
 docker compose up -d --build
 ```
 
-Notes:
+What this setup does:
 
-- Build stage runs next build under Node.js 20.
-- Runtime stage uses Bun and serves standalone Next.js output.
-- Compose runs LMS and PocketBase together by default.
-- PocketBase data is persisted in named Docker volume `pocketbase_data`.
-- Runtime PocketBase and secret vars are provided from `.env`.
+- Builds LMS in a Node.js 20 stage
+- Runs the production container with Bun
+- Starts PocketBase alongside the app by default
+- Persists PocketBase data in the named volume `pocketbase_data`
 
-## VPS Deployment (Direct From Repo)
+In the default compose setup, LMS can reach PocketBase through the internal service name `pb_lms`.
 
-If you deploy by cloning/pulling this repo directly on your VPS:
+## VPS Deployment
 
-1. Clone the repository on the VPS.
-1. Create your `.env` from `.env.example` and fill required values.
-1. Set `POCKETBASE_URL` to a value reachable from inside the LMS container.
-
-Recommended when PocketBase is on the same VPS host:
-
-```bash
-POCKETBASE_URL=http://host.docker.internal:8090
-```
-
-Do not use `localhost`, `127.0.0.1`, or `0.0.0.0` for `POCKETBASE_URL` in Docker deployments.
-Default compose wiring already uses `http://pb_lms:8090`, so you can usually omit `POCKETBASE_URL` unless you use an external PocketBase instance.
-
-When running `bun run setup:pocketbase` directly on the VPS host shell, use a host-reachable URL (for example `http://127.0.0.1:8090`) instead of Docker-only hostnames.
-
-1. Run:
+For a direct VPS deployment from the checked-out repository, use the provided script:
 
 ```bash
 bun run deploy:vps
 ```
 
-This command uses `docker-compose.vps.yml` to build locally and start containers:
+This command runs `docker compose -f docker-compose.vps.yml up -d --build --force-recreate --remove-orphans` and is intended for pull-and-build deployments on your server.
 
-- builds LMS from the current checked-out source
-- recreates containers in detached mode
-- removes orphaned containers
+### VPS Networking Notes
 
-## VPS Path B (HTTPS + /lms subpath)
+- If PocketBase runs on the same VPS host, `POCKETBASE_URL` must point to a host-reachable address.
+- For Docker deployments, do not use `localhost`, `127.0.0.1`, or `0.0.0.0` unless the service is reachable from inside the LMS container.
+- When running `bun run setup:pocketbase` directly on the host, use a host-accessible URL such as `http://127.0.0.1:8090`.
 
-`docker-compose.vps.yml` includes a Caddy reverse proxy and configures PocketBase with:
+### HTTPS + `/lms` Subpath
 
-- `--url=${POCKETBASE_PUBLIC_URL}`
-- `X-Forwarded-Prefix: /lms` via Caddy
+The `docker-compose.vps.yml` file also supports a reverse-proxy deployment with Caddy and a PocketBase subpath.
 
-Set these in `.env`:
-
-```bash
-POCKETBASE_URL=https://api.limarise.com/lms
-POCKETBASE_PUBLIC_URL=https://api.limarise.com/lms
-```
-
-Make sure DNS points to your VPS:
-
-- `lms.limarise.com`
-- `api.limarise.com`
-
-Then deploy:
+Typical values look like this:
 
 ```bash
-bun run deploy:vps
+POCKETBASE_URL=https://api.example.com/lms
+POCKETBASE_PUBLIC_URL=https://api.example.com/lms
 ```
 
-## High-Level Project Layout
+In that setup, Caddy forwards the LMS app on one host name and PocketBase on a `/lms` subpath of another host name.
+
+## Project Structure
 
 ```text
-app/                 Next.js App Router routes and pages
-components/          Shared UI, forms, dialogs, and layout pieces
+app/                 App Router pages, layouts, and route handlers
+components/          Shared UI, forms, dialogs, and layout components
 hooks/               Client-side React hooks
-lib/                 Integrations, auth/session, utilities, RBAC helpers
-server/              tRPC server context and routers
+lib/                 Auth, storage, PocketBase, query client, and utilities
+server/              tRPC context and routers
 scripts/             Utility scripts
-styles/              Global styling assets
+styles/              Global styles
+public/              Static assets
 ```
 
 ## Contributing
 
-1. Branch from your working base.
-2. Keep changes scoped and reviewable.
-3. Run bun run lint before opening a PR.
-4. Include notes for schema or environment changes.
-
-## Operational Notes
-
-- This repository intentionally does not include a .gitignore.
-- If a directory must exist before it has domain files, use a .gitkeep file.
+1. Keep changes focused and easy to review.
+2. Update environment or setup notes whenever a change affects deployment.
+3. Run `bun run lint` before opening a pull request.
+4. Include any PocketBase schema or data migration notes with the change.

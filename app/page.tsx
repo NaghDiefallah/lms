@@ -113,7 +113,7 @@ export default function LandingPage() {
               in one secure platform built for attorneys who mean business.
             </p>
 
-            <div className="mt-10 flex flex-wrap items-center gap-4">
+            <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
               <Link href="/sign-up">
                 <Button size="lg" className="gap-2 px-6 text-base">
                   Start free <ArrowRight className="h-4 w-4" />

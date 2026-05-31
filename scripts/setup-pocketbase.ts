@@ -43,23 +43,62 @@ async function createCollectionCompat(pb: any, def: CollectionDef) {
   }
 }
 
+/**
+ * Fetch the current collection schema and return only the fields that need to
+ * be added (i.e. names not yet present in the live schema).  This is critical
+ * for built-in auth collections (e.g. "users") where PocketBase owns certain
+ * system fields and will reject a full-replace payload.
+ */
+async function getMissingFields(pb: any, collectionId: string, wantedFields: FieldDef[]): Promise<FieldDef[]> {
+  try {
+    const existing = await pb.collections.getOne(collectionId);
+    // PocketBase v0.22+ uses "fields"; older uses "schema"
+    const existingNames = new Set<string>(
+      ((existing.fields ?? existing.schema) as Array<{ name: string }> ?? []).map((f) => f.name)
+    );
+    return wantedFields.filter((f) => !existingNames.has(f.name));
+  } catch {
+    // If we can't fetch, fall back to sending all fields (best-effort)
+    return wantedFields;
+  }
+}
+
 async function updateCollectionCompat(pb: any, id: string, def: CollectionDef) {
-  const modernPayload = {
-    name: def.name,
-    type: def.type,
-    fields: def.fields,
-    indexes: def.indexes ?? [],
+  // Only send fields that don't already exist to avoid clobbering system fields
+  // on built-in collections (auth collections in particular).
+  const newFields = await getMissingFields(pb, id, def.fields);
+
+  if (newFields.length === 0 && (def.indexes ?? []).length === 0) {
+    // Nothing to change — skip the network round-trip
+    return null;
+  }
+
+  // Fetch the current full schema so we can merge, not replace
+  let currentFields: any[] = [];
+  try {
+    const existing = await pb.collections.getOne(id);
+    currentFields = existing.fields ?? existing.schema ?? [];
+  } catch {}
+
+  const mergedFields = [...currentFields, ...newFields];
+
+  const modernPayload: Record<string, unknown> = {
+    fields: mergedFields,
   };
+  if ((def.indexes ?? []).length > 0) {
+    modernPayload.indexes = def.indexes;
+  }
 
   try {
     return await pb.collections.update(id, modernPayload);
   } catch {
-    const legacyPayload = {
-      name: def.name,
-      type: def.type,
-      schema: toLegacySchema(def.fields),
-      indexes: def.indexes ?? [],
+    // Legacy PocketBase: use "schema" key with system:false markers
+    const legacyPayload: Record<string, unknown> = {
+      schema: [...toLegacySchema(currentFields), ...toLegacySchema(newFields)],
     };
+    if ((def.indexes ?? []).length > 0) {
+      legacyPayload.indexes = def.indexes;
+    }
     return await pb.collections.update(id, legacyPayload);
   }
 }
@@ -72,9 +111,7 @@ const defs: CollectionDef[] = [
       { name: "name", type: "text", required: true },
       { name: "defaultFirmId", type: "text" },
     ],
-    indexes: [
-      "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users (email)",
-    ],
+    // PocketBase manages the email uniqueness index internally for auth collections
   },
   {
     name: "firms",
@@ -236,32 +273,64 @@ const defs: CollectionDef[] = [
 async function run() {
   const pb = await getPocketBaseAdmin();
   const current = await pb.collections.getFullList();
-  const byName = new Map(current.map((c) => [c.name, c]));
+  const byName = new Map(current.map((c: any) => [c.name, c]));
 
-  console.log("PocketBase connection OK. Bootstrapping schema...");
+  console.log(`\nPocketBase connection OK — ${current.length} existing collection(s) found.`);
+  console.log("Bootstrapping schema...\n");
+
+  let created = 0;
+  let updated = 0;
+  let skipped = 0;
+  let failed = 0;
 
   for (const def of defs) {
     try {
       const existing = byName.get(def.name);
       if (!existing) {
         await createCollectionCompat(pb, def);
-        console.log(`Created collection: ${def.name}`);
+        console.log(`  [+] Created  : ${def.name}`);
+        created++;
         continue;
       }
 
-      await updateCollectionCompat(pb, existing.id, def);
-      console.log(`Updated collection: ${def.name}`);
+      const result = await updateCollectionCompat(pb, existing.id, def);
+      if (result === null) {
+        console.log(`  [=] No-op    : ${def.name} (already up to date)`);
+        skipped++;
+      } else {
+        console.log(`  [~] Updated  : ${def.name}`);
+        updated++;
+      }
     } catch (err: any) {
-      console.error(`Failed collection: ${def.name}`);
-      console.error(err?.response ?? err?.data ?? err);
-      throw err;
+      const detail = err?.response ?? err?.data ?? err;
+      console.error(`  [!] Failed   : ${def.name}`);
+      console.error("      Reason  :", detail?.message ?? detail);
+      if (detail?.data && typeof detail.data === "object") {
+        for (const [field, msg] of Object.entries(detail.data)) {
+          console.error(`      Field "${field}":`, msg);
+        }
+      }
+      failed++;
+      // Don't throw — attempt remaining collections and report at the end.
     }
   }
 
-  console.log("PocketBase schema bootstrap complete.");
+  console.log(
+    `\nDone. created=${created} updated=${updated} skipped=${skipped} failed=${failed}`
+  );
+
+  if (failed > 0) {
+    process.exit(1);
+  }
 }
 
 run().catch((error) => {
-  console.error("PocketBase setup check failed:", error);
+  const msg = error?.message ?? String(error);
+  console.error("\nPocketBase setup failed:", msg);
+  if (msg.includes("ECONNREFUSED") || msg.includes("Failed to connect")) {
+    console.error(
+      "  Hint: make sure PocketBase is running and POCKETBASE_URL is correct."
+    );
+  }
   process.exit(1);
 });
