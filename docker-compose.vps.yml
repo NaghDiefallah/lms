@@ -6,7 +6,7 @@ services:
     ports:
       - "127.0.0.1:8090:80"
     volumes:
-      - pocketbase_data:/pb/pb_data
+      - ./pb_data:/pb_data
 
   lms:
     build:
@@ -24,6 +24,3 @@ services:
       - .env
     environment:
       POCKETBASE_URL: ${POCKETBASE_PUBLIC_URL:-https://api.limarise.com/lms}
-
-volumes:
-  pocketbase_data:
