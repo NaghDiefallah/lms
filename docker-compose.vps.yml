@@ -23,7 +23,7 @@ services:
     env_file:
       - .env
     environment:
-      POCKETBASE_URL: ${POCKETBASE_URL:-http://pb_lms}
+      POCKETBASE_URL: ${POCKETBASE_URL:-${POCKETBASE_PUBLIC_URL:-http://pb_lms}}
 
 volumes:
   pocketbase_data:

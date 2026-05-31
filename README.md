@@ -137,7 +137,8 @@ This command runs `docker compose -f docker-compose.vps.yml up -d --build --forc
 ### VPS Networking Notes
 
 - If PocketBase runs on the same VPS host, `POCKETBASE_URL` must point to a host-reachable address.
-- In `docker-compose.vps.yml`, the default container-to-container value is `POCKETBASE_URL=http://pb_lms`.
+- In `docker-compose.vps.yml`, URL precedence is: `POCKETBASE_URL` -> `POCKETBASE_PUBLIC_URL` -> `http://pb_lms`.
+- If your PocketBase enforces HTTPS for auth, prefer setting `POCKETBASE_URL` (or `POCKETBASE_PUBLIC_URL`) to your reverse-proxied HTTPS endpoint.
 - For Docker deployments, do not use `localhost`, `127.0.0.1`, or `0.0.0.0` unless the service is reachable from inside the LMS container.
 - When running `bun run setup:pocketbase` directly on the host, use a host-accessible URL such as `http://127.0.0.1:8090`.
 

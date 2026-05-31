@@ -37,6 +37,18 @@ const POCKETBASE_ADMIN_REQUEST_TIMEOUT_MS = 15000;
 
 let adminReady: Promise<PocketBase> | null = null;
 
+function buildPocketBaseUrl(path: string) {
+  if (!pocketBaseUrl) {
+    throw new Error("PocketBase is not configured. Set POCKETBASE_URL in .env");
+  }
+
+  const base = new URL(pocketBaseUrl);
+  const cleanPath = path.replace(/^\/+/, "");
+  const basePath = base.pathname.endsWith("/") ? base.pathname : `${base.pathname}/`;
+
+  return new URL(`${basePath}${cleanPath}`, `${base.protocol}//${base.host}`).toString();
+}
+
 async function authPocketBaseAdmin(pb: PocketBase) {
   try {
     await pb.admins.authWithPassword(superuserEmail!, superuserPassword!);
@@ -52,13 +64,14 @@ async function authPocketBaseAdmin(pb: PocketBase) {
   } catch {}
 
   const endpoints = [
-    "/api/collections/_superusers/auth-with-password",
-    "/api/admins/auth-with-password",
+    "api/collections/_superusers/auth-with-password",
+    "api/admins/auth-with-password",
   ];
 
   let lastError = "";
+  let preferredError = "";
   for (const path of endpoints) {
-    const endpoint = new URL(path, pocketBaseUrl).toString();
+    const endpoint = buildPocketBaseUrl(path);
 
     try {
       const timeoutSignal = AbortSignal.timeout(POCKETBASE_ADMIN_REQUEST_TIMEOUT_MS);
@@ -90,7 +103,13 @@ async function authPocketBaseAdmin(pb: PocketBase) {
       }
 
       const text = await response.text();
-      lastError = `PocketBase admin auth failed (${response.status}) via ${path}: ${text}`;
+      const currentError = `PocketBase admin auth failed (${response.status}) via ${path}: ${text}`;
+      lastError = currentError;
+
+      // Preserve the most useful failure and avoid ending on legacy endpoint 404 noise.
+      if (!preferredError && response.status !== 404) {
+        preferredError = currentError;
+      }
 
       if (response.status === 400 && /use https/i.test(text)) {
         throw new Error(
@@ -99,20 +118,37 @@ async function authPocketBaseAdmin(pb: PocketBase) {
           + "or disable the HTTPS-only requirement in PocketBase settings for internal Docker traffic.",
         );
       }
+
+      if (response.status === 400 && /authenticate|identity|password|invalid/i.test(text)) {
+        throw new Error(
+          "PocketBase superuser authentication failed. Verify POCKETBASE_SUPERUSER_EMAIL and "
+          + "POCKETBASE_SUPERUSER_PASSWORD for the target PocketBase instance.",
+        );
+      }
     } catch (error) {
       if (error instanceof Error && /requires HTTPS|HTTPS-only/i.test(error.message)) {
         throw error;
       }
 
+      if (error instanceof Error && /superuser authentication failed/i.test(error.message)) {
+        throw error;
+      }
+
       if (error instanceof Error) {
         lastError = `${path}: ${error.message}`;
+        if (!preferredError) {
+          preferredError = lastError;
+        }
       } else {
         lastError = `${path}: unknown error`;
+        if (!preferredError) {
+          preferredError = lastError;
+        }
       }
     }
   }
 
-  throw new Error(lastError || "PocketBase admin auth failed on all known endpoints.");
+  throw new Error(preferredError || lastError || "PocketBase admin auth failed on all known endpoints.");
 }
 
 function requirePocketBaseConfig() {
